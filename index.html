@@ -1,0 +1,1144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Explore restaurants, cafés, and shops in Fairfield and Southport, Connecticut.">
+<title>Fairfield Shopping Finder</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+ integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+<style>
+  :root {
+    color-scheme: light;
+    --red:#a8192c; --red-dark:#78111f; --ink:#252126; --muted:#655d62;
+    --line:#e7dcdf; --paper:#faf7f5; --pink:#fbecef;
+    font:16px/1.5 system-ui,-apple-system,sans-serif;
+    color:var(--ink);
+  }
+  * {box-sizing:border-box}
+  body {margin:0;background:var(--paper)}
+  [hidden] {display:none!important}
+  h1,h2,h3,p {margin:0}
+  h1 {font-size:1.3rem;line-height:1.2;letter-spacing:-.02em}
+  h2 {font-size:1.13rem;line-height:1.3}
+  h3 {font-size:1rem}
+  a {color:var(--red)}
+  button,input,select,textarea {font:inherit}
+  button,select {cursor:pointer}
+  button:disabled {cursor:default;opacity:.5}
+  :focus-visible {outline:3px solid #b03a51;outline-offset:3px}
+  .wrap {width:min(1240px,calc(100% - 34px));margin-inline:auto}
+  .top {background:white;border-bottom:1px solid var(--line)}
+  .bar,.row,nav,.chips,.legend {display:flex;gap:.55rem;align-items:center;flex-wrap:wrap}
+  .bar {justify-content:space-between;min-height:70px;padding-block:10px}
+  .brand small {display:block;margin-top:3px;color:var(--muted);font-size:.74rem}
+  main {padding-block:15px 25px}
+  nav button,.chip,.soft,.primary {
+    border:1px solid var(--line);border-radius:8px;padding:.48rem .68rem;
+    background:white;color:var(--ink);font-size:.85rem;font-weight:650;
+  }
+  nav button {border-color:transparent}
+  nav button[aria-current],.chip[aria-pressed="true"],.soft[aria-pressed="true"],
+  .chip:hover,.soft:hover,nav button:hover {background:var(--pink);color:var(--red);border-color:#edc7ce}
+  .soft {color:var(--red)}
+  .primary {background:var(--red);border-color:var(--red);color:white}
+  .primary:hover {background:var(--red-dark)}
+  a.primary,a.soft {display:inline-block;text-decoration:none}
+  .box {background:white;border:1px solid var(--line);border-radius:13px}
+  .filters,.tools {padding:13px}
+  .filters .row:first-child {align-items:end}
+  .filters details {margin-top:9px;font-size:.85rem}
+  .filters summary,summary {cursor:pointer;color:var(--red)}
+  .filters .chips {margin-top:9px}
+  .search-field {flex:1 1 210px}
+  .field {display:grid;align-content:start;gap:4px;font-weight:650;font-size:.88rem}
+  .field input,.field select,.field textarea {
+    width:100%;min-width:0;border:1px solid #d9cdd1;border-radius:7px;
+    padding:.47rem .55rem;background:white;color:var(--ink);
+  }
+  .field textarea {resize:vertical}
+  .grid,.checks {
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,165px),1fr));
+    gap:9px;margin-block:9px;
+  }
+  .checks {max-height:15rem;overflow:auto}
+  .checks label {border:1px solid var(--line);border-radius:8px;padding:.45rem;font-size:.84rem}
+  input[type="checkbox"] {accent-color:var(--red)}
+  .note,.address,.empty p,.tools>p {color:var(--muted)}
+  .note,.address {font-size:.82rem}
+  .note {margin-top:3px}
+  .explorer,.route-layout {display:grid;gap:13px;margin-top:13px;align-items:start}
+  .explorer {grid-template-columns:minmax(0,1.55fr) minmax(0,1fr)}
+  .route-layout {grid-template-columns:minmax(0,1fr) minmax(0,1.15fr)}
+  .panel {overflow:hidden}
+  .panel-head {padding:10px 13px;border-bottom:1px solid var(--line)}
+  .map-head {justify-content:space-between}
+  .map-head .note {flex-basis:100%}
+  #map {height:clamp(380px,62vh,590px);background:#eeeae4;isolation:isolate}
+  .route-layout #map {height:360px;border-radius:9px}
+  .legend {padding:9px 12px;color:var(--muted);font-size:.74rem}
+  .legend span::before {
+    content:"";display:inline-block;width:.59rem;height:.59rem;border-radius:50%;
+    margin-right:.35rem;background:var(--category);
+  }
+  .food {--category:#8a3d62;--tint:#f8e8f0}
+  .coffee {--category:#985018;--tint:#faeedf}
+  .fashion {--category:#74479d;--tint:#f3eafa}
+  .gifts {--category:#a8192c;--tint:#fce9ed}
+  .books {--category:#28665d;--tint:#e5f1ec}
+  .pin {background:none;border:0}
+  .pin span {
+    display:grid;place-items:center;width:22px;height:22px;
+    background:var(--category);color:white;border:2px solid white;
+    border-radius:50% 50% 50% 4px;transform:rotate(-45deg);box-shadow:0 2px 4px #20111d75;
+  }
+  .pin b {transform:rotate(45deg);font-size:.63rem}
+  .cluster-label {
+    display:grid;place-items:center;width:36px;height:36px;border-radius:50%;
+    border:2px solid white;background:#8d1934;color:white;font-weight:800;
+    box-shadow:0 0 0 3px #921d3e38;
+  }
+  .cluster-icon:focus-visible {border-radius:50%;outline:3px solid #38182a}
+  .results {display:grid;gap:7px;padding:9px;max-height:clamp(420px,66vh,625px);overflow:auto}
+  .card {
+    display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;
+    border:1px solid var(--line);border-radius:9px;
+  }
+  .card:hover,.card:focus-within {border-color:#dcaebb;background:#fffcfc}
+  .card-open {
+    width:100%;display:grid;gap:2px;justify-items:start;text-align:left;
+    padding:9px 11px;border:0;background:transparent;color:var(--ink);
+  }
+  .tag {background:var(--tint);color:var(--category);border-radius:5px;padding:2px 6px;font-size:.72rem;font-weight:700}
+  .heart {margin:7px 8px 0 0;min-width:38px;padding:4px 7px;font-size:1.1rem}
+  .empty,.item {padding:11px}
+  .item {border:1px solid var(--line);border-radius:9px;margin-block:8px}
+  .item .field,.profile-actions {margin-top:8px}
+  .stop-name {flex:1}
+  .mobile-switch {display:none}
+  .table-scroll {overflow:auto}
+  table {border-collapse:collapse;width:100%;min-width:510px}
+  th,td {padding:8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  dialog {
+    width:min(540px,calc(100% - 24px));max-height:calc(100% - 24px);overflow:auto;
+    border:1px solid var(--line);border-radius:13px;padding:16px;color:var(--ink);
+  }
+  dialog::backdrop {background:#30141d85}
+  .profile-top {display:flex;justify-content:space-between;align-items:start;gap:12px}
+  #profile-body h3 {margin-top:12px}
+  #profile-body ul {margin:4px 0 8px;padding-left:22px}
+  #profile-body .field {margin-top:10px}
+  .verification {margin-top:14px;font-size:.84rem;color:var(--muted)}
+  .verification li {margin-block:5px}
+  footer {border-top:1px solid var(--line);padding-block:12px;font-size:.78rem;color:var(--muted)}
+  #toast {
+    position:fixed;bottom:15px;right:15px;max-width:calc(100% - 30px);
+    background:#30252c;color:white;z-index:1100;padding:.5rem .8rem;border-radius:8px;
+  }
+  #toast:empty {display:none}
+  @media(max-width:700px) {
+    .wrap {width:calc(100% - 22px)}
+    .explorer,.route-layout {grid-template-columns:minmax(0,1fr)}
+    .mobile-switch {display:flex;margin-top:9px}
+    #explore[data-mobile="map"] #list-panel,
+    #explore[data-mobile="list"] #map-home {display:none}
+    #map {height:clamp(290px,52vh,450px)}
+    .results {max-height:none}
+    .chip,.soft,.primary,nav button {min-height:40px}
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap bar">
+    <div class="brand">
+      <h1>Fairfield Shopping Finder</h1>
+      <small>Fairfield &amp; Southport, Connecticut</small>
+    </div>
+    <nav aria-label="Main navigation">
+      <button type="button" data-view="explore" aria-current="page">Explore</button>
+      <button type="button" data-view="gift">Gift Finder</button>
+      <button type="button" data-view="compare">Compare</button>
+      <button type="button" data-view="saved">Saved<span id="saved-count"></span></button>
+      <button type="button" data-view="route">My Route<span id="route-count"></span></button>
+    </nav>
+  </div>
+</header>
+<main class="wrap">
+  <noscript><p>Enable JavaScript to use the map, filters, and saved places.</p></noscript>
+  <section id="explore" data-mobile="map">
+    <div class="box filters">
+      <div class="row">
+        <label class="field search-field">Search Fairfield
+          <input id="query" type="search" placeholder="Business name or offerings">
+        </label>
+        <button type="button" class="soft" data-reset>Reset filters</button>
+      </div>
+      <div class="chips" id="categories" aria-label="Categories"></div>
+      <details>
+        <summary>Area, needs and budget</summary>
+        <div class="chips" id="needs" aria-label="Shop by need"></div>
+        <div class="grid">
+          <label class="field">Area<select id="area"><option value="">All areas</option></select></label>
+          <label class="field">Budget
+            <select id="budget">
+              <option value="">Any budget</option>
+              <option value="under25">Under $25</option>
+              <option value="25to50">$25–$50</option>
+              <option value="50to100">$50–$100</option>
+              <option value="over100">$100 and up</option>
+              <option value="custom">Custom maximum</option>
+            </select>
+          </label>
+          <label class="field" id="custom-wrap" hidden>Maximum ($)
+            <input id="custom-budget" type="number" min="0" step=".01" placeholder="30">
+          </label>
+        </div>
+        <p id="budget-help" class="note" hidden>Budget matches use published price examples. Check with each business for current prices and availability.</p>
+      </details>
+    </div>
+    <div class="row mobile-switch" aria-label="Map or list">
+      <button type="button" class="soft" data-mobile-mode="map" aria-pressed="true">Map</button>
+      <button type="button" class="soft" data-mobile-mode="list" aria-pressed="false">List</button>
+      <span id="mobile-count" class="note"></span>
+    </div>
+    <div class="explorer">
+      <section class="box panel" id="map-home" aria-labelledby="map-title">
+        <div class="panel-head row map-head">
+          <h2 id="map-title">Fairfield map</h2>
+          <div class="row">
+            <button type="button" class="primary" id="search-area">Search this area</button>
+            <button type="button" class="soft" id="fit-map">Fit matches</button>
+            <button type="button" class="soft" id="clear-area" hidden>Clear map area</button>
+          </div>
+          <p id="scope-note" class="note" hidden>Results are limited to the last map area searched.</p>
+        </div>
+        <div id="map" aria-label="Interactive map of Fairfield businesses"></div>
+        <div class="legend" id="legend"></div>
+      </section>
+      <section class="box panel" id="list-panel" aria-labelledby="list-title">
+        <div class="panel-head">
+          <h2 id="list-title">Matching businesses</h2>
+          <p class="note" id="result-count" role="status"></p>
+        </div>
+        <div class="results" id="results"></div>
+      </section>
+    </div>
+  </section>
+  <section class="box tools" id="tools" hidden></section>
+  <details class="verification">
+    <summary>Directory verification notes</summary>
+    <ul id="verification-list"></ul>
+  </details>
+</main>
+<footer>
+  <div class="wrap">Sources reviewed November 17, 2026 · Dining locations:
+    <a href="https://fairfieldflavor.com/places/">Fairfield Flavor</a> and
+    <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors (ODbL)</a>
+  </div>
+</footer>
+<dialog id="profile" aria-labelledby="profile-title"><div id="profile-body"></div></dialog>
+<div id="toast" role="status"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+ integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script id="business-data" type="text/plain">
+ff-16-handles|16 Handles|1300 Post Road|41.142781,-73.255264|center|coffee|Frozen yogurt, smoothies.|https://16handles.com/|16-handles
+ff-agusto-s-italian-deli|Agusto's Italian Deli|1326 Post Road|41.142356,-73.255638|center|food|Italian deli, sandwiches.|https://www.agustositaliandeli.com|agusto-s-italian-deli
+apricot|Apricot Lane Boutique|1499 Post Road|41.140972,-73.258055|center|fashion|Women’s and teen clothing, accessories, and gifts.|https://apricotlaneboutique.com/store/fairfield/
+ff-archie-moore-s|Archie Moore's|48 Sanford Street|41.141884,-73.257468|center|food|Wings, burgers, sandwiches.|https://www.archiemoores.com/|archie-moore-s
+aurorasrestaurant|Aurora’s Restaurant|1603 Post Road|41.140973,-73.260138|center|food|Restaurant with a Fairfield pickup and delivery menu.|https://order.online/store/aurora-s-restaurant-23310039
+bluepointhome|Bluepoint Home|1215 Post Road|41.143078,-73.253517|center|gifts|Home goods, gifts, and interior design.|https://bluepointhomellc.com/bluepoint-home/
+ff-bodega-taco-bar|Bodega Taco Bar|1700 Post Road|41.141469,-73.261201|center|food|Tacos, burritos, bowls.|https://bodegatacobar.com/|bodega-taco-bar
+ff-bonchon|Bonchon|1561 Post Road|41.140901,-73.259099|center|food|Korean fried chicken.|https://restaurants.bonchon.com/locations/ct/fairfield/1561-post-rd|bonchon
+brickwalk|Brick Walk Tavern|1275 Post Road|41.142258,-73.254433|center|food|American restaurant with lunch, brunch, dinner, and dessert menus.|https://www.brickwalktavern.com/|brick-walk-tavern
+capri|Capri Fairfield|1417 Post Road|41.14147,-73.25633|center|fashion|Women’s clothing, jewelry, handbags, scarves, and gifts.|https://www.caprifairfield.com/home
+ff-captain-s-pizza-5|Captain's Pizza 5|59 Sanford Street|41.141728,-73.257997|center|food|Pizza, burgers, seafood, calzones, pasta, sandwiches.|https://captainspizzafairfield.com|captain-s-pizza-5
+ff-centro-ristorante-bar|Centro Ristorante & Bar|1435 Post Road|41.141003,-73.256722|center|food|Italian food, pizza, pasta, sandwiches, burgers.|https://centroristorante.com/|centro-ristorante-bar
+ff-chef-s-table|Chef's Table|1138 Post Road|41.144529,-73.253706|center|food|Prepared foods, deli sandwiches, breakfast, coffee, soup.|https://www.chefstableffld.com|chef-s-table
+ff-chip-city-cookies|Chip City Cookies|1125 Post Road|41.144176,-73.252883|center|coffee|Cookies, bakery, dessert, ice cream.|https://chipcitycookies.com/locations/fairfield|chip-city-cookies
+ciaobellaboutique|Ciao Bella Boutique|1551 Post Road|41.140986,-73.259433|center|fashion|Women’s boutique clothing and accessories.|https://shopciaobella.com/ciao-bella-boutique
+ff-clean-slate|Clean Slate|116 Sherman Street|41.140158,-73.259106|center|coffee|Coffee, juice, smoothies, açaí, breakfast.|https://cleanslateffld.com|clean-slate
+ff-colony-grill|Colony Grill|1520 Post Road|41.14123,-73.258347|center|food|Pizza and bar.|https://www.colonygrill.com/|colony-grill
+cosetta|Cosetta|1560 Post Road|41.141281,-73.259133|center|food|Italian sandwiches, pizza, espresso drinks, and pastries.|https://www.cosetta.net/|cosetta
+ff-domino-s|Domino's|1580 Post Road|41.141509,-73.259539|center|food|Pizza.|https://pizza.dominos.com/connecticut/fairfield/1580-post-rd|domino-s
+element50|Element50 Rock Shop|1438 Post Road|41.14132,-73.256839|center|fashion|Crystals, minerals, gemstones, and jewelry.|https://element50.com/
+bookstore|Fairfield University Bookstore|1499 Post Road|41.140972,-73.258055|center|books|Books, Fairfield University apparel, accessories, and campus-themed gifts.|https://www.bkstr.com/fairfielddowntownstore/home
+ff-fin|Fin|1241 Post Road|41.143039,-73.254578|center|food|Japanese and Chinese food, sushi, noodles, poke bowls.|https://www.finfairfield.com|fin
+ff-firehouse-deli|Firehouse Deli|22 Reef Road|41.140659,-73.25757|center|food|Deli sandwiches, burgers, breakfast, salads.|https://www.firehousedelifairfield.com/|firehouse-deli
+ff-flipside|Flipside|1125 Post Road|41.144176,-73.252883|center|food|Burgers.|https://www.flipsiderestaurant.com/|flipside
+flour|Flour Water Salt|1215 Post Road|41.143078,-73.253517|center|coffee|Handmade sourdough bread and pastries. The local dining guide also lists coffee.|https://www.flourwatersaltbread.com|flour-water-salt
+ff-gabagool-wine-bar|Gabagool Wine Bar|70 Reef Road|41.140031,-73.257112|center|food|Italian food and wine bar.|https://gabagoolwinebar.com/|gabagool-wine-bar
+goodpoint|Goodpoint|23 Miller Street|41.141337,-73.258786|center|gifts|Specialty retail.|https://www.experiencefairfieldct.org/shoppinglist/goodpoint
+reid|Henry C. Reid & Son Jewelers|1591 Post Road|41.140974,-73.259976|center|fashion|Fine jewelry, custom design, and repair services.|https://hcreidjewelers.com/
+hope|Hope & Joy|95 Reef Road|41.13972,-73.25658|center|gifts|Personalized stationery, embroidered gifts, accessories, women’s fashion, and paper goods.|https://findinghopeandjoy.com
+ff-il-pellicano|Il Pellicano|1460 Post Road|41.14127,-73.257291|center|food|Italian food, pasta.|https://www.ilpellicanofairfield.com/|il-pellicano
+intimates|In the Mood Intimates|1499 Post Road|41.140972,-73.258055|center|fashion|Lingerie, bras, sleepwear, and fitting services.|https://inthemoodintimates.com/
+island|Island Outfitters|1189 Post Road|41.14413,-73.25359|center|fashion|Clothing and accessories in the Brick Walk.|https://www.islandoutfitters.com/
+ff-italian-kitchen|Italian Kitchen|1700 Post Road|41.141469,-73.261201|center|food|Italian deli, sandwiches, pizza, pasta, salads.|https://italiankitchenct.com/|italian-kitchen
+ff-j-b-percival-co|J.B. Percival Co.|63 Unquowa Road|41.142392,-73.257187|center|food|Small plates, cocktails, and wine.|https://jbpercival.com/|j-b-percival-co
+jane|Jane + Mercer|1530 Post Road|41.141125,-73.258612|center|fashion|Women’s clothing and wardrobe basics.|https://janeandmercer.com/
+ff-joe-joe-coffee-acai|Joe Joe Coffee & Acai|1492 Post Road|41.14118,-73.2579|center|coffee|Coffee, açaí, smoothies, gelato.|https://www.joejoefairfield.com|joe-joe-coffee-acai
+lamoda|La Moda Fashions|1434 Post Road|41.141353,-73.256767|center|fashion|Women’s clothing from a range of fashion brands.|https://lamodafashions.com/
+ff-lantern-point-taverna|Lantern Point Taverna|1612 Post Road|41.141117,-73.259782|center|food|Greek food, salads.|https://lanternpointtaverna.com/|lantern-point-taverna
+loom|Loom Vintage|1139 Post Road|41.14464,-73.2531|center|gifts|Vintage décor, baskets, mirrors, lamps, furniture, and accessories.|https://www.loomvintage.com
+ff-malibu|Malibu|1177 Post Road|41.143743,-73.253628|center|food|Mexican and Californian food, tacos, seafood.|https://www.malibutaco.com/|malibu
+marathon|Marathon Sports|1596 Post Road|41.141096,-73.259576|center|books|Running shoes, running gear, and footwear fitting.|https://www.marathonsports.com/locations/fairfield
+ff-mecha-noodle-bar|Mecha Noodle Bar|1215 Post Road|41.143078,-73.253517|center|food|Noodles, ramen, Vietnamese food.|https://www.mechanoodlebar.com/|mecha-noodle-bar
+ff-milkcraft|Milkcraft|1215 Post Road|41.143078,-73.253517|center|coffee|Ice cream.|https://www.milkcraftca.com/|milkcraft
+no299|No.299|48 Reef Road|41.14047,-73.257251|center|gifts|Home accents, jewelry, paper goods, and gifts.|https://no-299-ct.myshopify.com/
+nordicfish|Nordic Fish|1499 Post Road|41.140972,-73.258055|center|books|Seafood market and sushi.|https://www.nordicfishfairfield.com/
+ff-oggi-gelato|Oggi Gelato|1499 Post Road|41.140972,-73.258055|center|coffee|Italian gelato and dessert.|https://www.oggigelato.com/|oggi-gelato
+ohsella|Ohsella|1215 Post Road|41.143078,-73.253517|center|fashion|Gemstone jewelry, candles, and bookable jewelry or candle-making events.|https://ohsella.com/
+ff-old-post-tavern|Old Post Tavern|1418 Post Road|41.141524,-73.25661|center|food|American tavern food, burgers, seafood.|https://www.instagram.com/oldposttavern/|old-post-tavern
+olivemystuff|Olive My Stuff|39 Sanford Street|41.141753,-73.25774|center|fashion|Consignment clothing and accessories.|https://www.olivemystuff.com/
+ff-pizzeria-molto|Pizzeria Molto|1215 Post Road|41.143078,-73.253517|center|food|Italian food, pizza, wine bar, pasta.|https://pizzeriamolto.com/|pizzeria-molto
+ff-playa-bowls|Playa Bowls|57 Unquowa Road|41.142341,-73.25714|center|coffee|Açaí bowls, juice, smoothies.|https://www.playabowls.com/|playa-bowls
+ff-pokemoto|Pokemoto|1512 Post Road|41.141156,-73.258347|center|food|Hawaiian poke, bubble tea.|https://www.pokemoto.com/|pokemoto
+ff-pronto|Pronto|1241 Post Road|41.143039,-73.254578|center|food|Salads, pizza, sandwiches.|https://prontochopped.com|pronto
+ff-quattro-pazzi|Quattro Pazzi|1599 Post Road|41.140876,-73.259817|center|food|Italian food, pasta, salads.|https://quattropazzi.com/|quattro-pazzi
+ff-ryebird|RYEBIRD|11 Unquowa Road|41.141744,-73.256656|center|food|New American food, seafood, sandwiches.|https://www.ryebird.com/|ryebird
+saigonsnackbar|Saigon Snack Bar|11 Unquowa Road|41.141744,-73.256656|center|food|Vietnamese food.|https://www.saigonsnackbar.com/
+ff-saugatuck-sweets|Saugatuck Sweets|28 Reef Road|41.14057,-73.257458|center|coffee|Candy and ice cream.|https://www.ssfairfield.com/|saugatuck-sweets
+ff-sophie-s-pizza-bar|Sophie's Pizza Bar|1275 Post Road|41.142258,-73.254433|center|food|Pizza, Italian food, pasta.|https://www.sophiespizzabar.com|sophie-s-pizza-bar
+ff-south-bay|South Bay|55 Miller Street|41.14189,-73.259|center|food|Mediterranean grill and wine bar.|https://southbayct.com/|south-bay
+ff-starbucks-downtown-fairfield|Starbucks|1499 Post Road|41.140972,-73.258055|center|coffee|Coffee, breakfast.|https://www.starbucks.com/store-locator/store/69876/fairfield-university-bookstore-1499-post-rd-fairfield-ct-068245940-us|starbucks-downtown-fairfield
+tswirl|T-swirl Crepe|1565 Post Road|41.140746,-73.259093|center|coffee|Sweet and savory Japanese-style crêpes.|https://t-swirlcrepe.com/order/|t-swirl-crepe
+thebeehive|The Beehive|1499 Post Road|41.140972,-73.258055|center|gifts|Home and lifestyle gifts.|https://thebeehivefairfield.com/
+ff-the-chelsea|The Chelsea|12 Unquowa Place|41.142345,-73.256018|center|food|New American food, seafood, burgers, cocktail bar.|https://www.thechelseaff.com/|the-chelsea
+thepantry|The Pantry|1580 Post Road|41.141509,-73.259539|center|books|Gourmet market, bakery, deli, prepared foods, and catering.|https://thepantry.net/
+thepehtshop|The PEHT Shop|1630 Post Road|41.141088,-73.260005|center|gifts|Gift shop operated by the Partnership to End Human Trafficking.|https://peht.org/
+theperfectpair|The Perfect Pair|14 Sanford Street|41.141576,-73.257368|center|fashion|Shoe boutique.|https://commerce.fairfieldctchamber.com/members/member/the-perfect-pair-17713
+ff-the-reef-shack|The Reef Shack|257 Reef Road|41.137922,-73.254947|center|food|American food, breakfast, sandwiches, seafood, wings.|https://thereefshack.toast.site/|the-reef-shack
+ff-the-sinclair|The Sinclair|1229 Post Road|41.142886,-73.25402|center|food|New American food.|https://www.thesinclairct.com|the-sinclair
+ff-the-whale-tea|The Whale Tea|1700 Post Road|41.141469,-73.261201|center|coffee|Bubble tea, tea, ice cream, dessert.|https://www.whaleteafairfield.com/|the-whale-tea
+toypolloi|Toy Polloi|41 Ruane Street|41.140335,-73.261058|center|books|Toys, puzzles, games, art supplies, children’s books, and gifts.|https://toy-polloi.com/
+vintage|Vintage Garden|1189 Post Road|41.14413,-73.25359|center|gifts|Candles, picture frames, jewelry, coastal décor, and Fairfield-themed gifts.|https://www.vintagegardengifts.com
+wake|Wake Cup Coffee|193 Unquowa Road, Unit RR|41.14413,-73.25773|center|coffee|Coffee and breakfast at the downtown Fairfield train station platform.|https://wake-cup-coffee.com
+wendyjune|Wendy & June|40 Reef Road|41.140567,-73.257312|center|fashion|Clothing boutique.|https://www.experiencefairfieldct.org/shoppinglist/wendy-june
+ff-wild-rice-sushi-asian-cuisine|Wild Rice Sushi & Asian Cuisine|1136 Post Road|41.144599,-73.253632|center|food|Asian fusion, sushi, noodles, soup.|https://www.wildricefairfield.com|wild-rice-sushi-asian-cuisine
+ff-artisan-southport|Artisan Southport|275 Old Post Road|41.138175,-73.287618|south|food|New American food.|https://artisansouthport.com/|artisan-southport
+ff-blackstones-grille|Blackstones Grille|2600 Post Road|41.140018,-73.2781|south|food|Steakhouse, seafood, salads.|https://blackstonesgrille.com/blackstones-grille-southport/|blackstones-grille
+candlewood|Candlewood Market|85 Mill Plain Road|41.141843,-73.266861|west|coffee|Coffee, espresso, tea, smoothies, sandwiches, Wi-Fi, and seating.|https://www.candlewoodmarket.com|candlewood-market
+ff-chick-fil-a|Chick-fil-A|750 Post Road|41.148014,-73.248625|east|food|Chicken, breakfast.|https://www.chick-fil-a.com/locations/ct/post-road|chick-fil-a
+ff-chipotle|Chipotle|340 Grasmere Avenue|41.157084,-73.240732|kings|food|Mexican food, burritos, tacos.|https://locations.chipotle.com/ct/fairfield/340-grasmere-ave|chipotle
+ff-cibus-latin-fusion|Cibus Latin Fusion|1809 Post Road|41.140955,-73.263546|west|food|Latin fusion, Colombian and Ecuadorian food, ceviche.|https://cibuslatinfusion.com/|cibus-latin-fusion
+ff-d-p-dough|D.P. Dough|222 Post Road|41.151938,-73.240167|east|food|Calzones, wings.|https://www.dpdough.com/|d-p-dough
+ff-dairy-queen|Dairy Queen|1902 Post Road|41.141177,-73.265216|west|coffee|Ice cream, smoothies, cakes.|https://www.dairyqueen.com/locations/ct/fairfield/1902-post-rd/54|dairy-queen
+ff-doughnut-inn|Doughnut Inn|562 Post Road|41.149008,-73.245249|east|coffee|Coffee, donuts, bakery, sandwiches, breakfast.|http://www.doughnutinn.com/562-post-road.html|doughnut-inn
+ff-duchess-post-road-east|Duchess|625 Post Road|41.148066,-73.245264|east|food|Burgers, breakfast, sandwiches, salads.|https://duchessrestaurants.com/|duchess-post-road-east
+ff-dunkin-post-road-east|Dunkin'|593 Post Road|41.148405,-73.24512|east|coffee|Donuts, coffee, sandwiches, bagels.|https://locations.dunkindonuts.com/en/ct/fairfield/593-post-rd/300342|dunkin-post-road-east
+ff-dunkin-baskin-robbins|Dunkin' & Baskin-Robbins|3355 Post Road|41.138139,-73.290994|south|coffee|Donuts, coffee, ice cream, sandwiches, bagels.|https://locations.dunkindonuts.com/en/ct/southport/3355-post-rd/341698|dunkin-baskin-robbins
+ff-el-rocoto|El Rocoto|937 Post Road|41.145959,-73.250447|east|food|Peruvian food, seafood, ceviche.|https://www.facebook.com/elrocotofairfield/|el-rocoto
+ff-elicit-brewing-co|Elicit Brewing Co|111 Black Rock Turnpike|41.161974,-73.231772|kings|food|Brewpub, burgers, pizza.|https://www.elicitbrewing.com/fairfield/elicit-brewing-co---fairfield|elicit-brewing-co
+esh|Esh Mediterranean|1401 Kings Highway|41.161348,-73.235274|kings|food|Modern Mediterranean dining.|https://eshrestaurant.com/|esh-mediterranean
+fairfieldwomensexchange|Fairfield Women’s Exchange|332 Pequot Avenue|41.136464,-73.283995|south|gifts|Volunteer-run gift and consignment shop.|https://thefairfieldexchange.com/
+ff-five-guys|Five Guys|340 Grasmere Avenue|41.157084,-73.240732|kings|food|Burgers, sandwiches.|https://restaurants.fiveguys.com/340-grasmere-avenue|five-guys
+ff-flat-out-burger|Flat Out Burger|58 Post Road|41.153269,-73.238117|east|food|Burgers.|https://flatoutburger.com|flat-out-burger
+foxtrothome|Foxtrot Home|362 Pequot Avenue|41.136187,-73.284351|south|gifts|Vintage and antique home furnishings.|https://www.experiencefairfieldct.org/shoppinglist/foxtrothome
+ff-g-cafe-bakery|G Cafe Bakery|353 Pequot Avenue|41.136336,-73.283992|south|coffee|Bakery, coffee, breakfast, sandwiches.|https://www.gcafebakery.com/|g-cafe-bakery
+ff-garelick-herbs|Garelick & Herbs|3611 Post Road|41.137991,-73.295722|south|food|Gourmet market, salads, sandwiches, soup, breakfast, pasta.|https://garelickandherbs.com/|garelick-herbs
+ff-geronimo|Geronimo|2070 Post Road|41.140723,-73.268246|west|food|Southwestern and Mexican food, tequila bar.|https://geronimobarandgrill.com/|geronimo
+ff-ginkgo-sichuan-cuisine|Ginkgo Sichuan Cuisine|923 Post Road|41.14651,-73.250462|east|food|Sichuan Chinese food, noodles, soup, seafood, salads.|https://www.ginkgosichuancuisine.com/|ginkgo-sichuan-cuisine
+ff-green-chilitos|Green Chilitos|246 Post Road|41.151496,-73.240881|east|food|Mexican food, tacos, breakfast, burritos, ice cream.|https://greenchilitosct.com/|green-chilitos
+ff-gruel-britannia|Gruel Britannia|2217 Post Road|41.140031,-73.270983|west|food|British food, breakfast, sandwiches.|https://gruelbritannia.com|gruel-britannia
+haven|Haven Hot Chicken|907 Post Road|41.145637,-73.249684|east|food|Nashville-style hot chicken, sandwiches, tenders, and sides.|https://www.havenhotchicken.com/fairfield-ct|haven-hot-chicken
+hobby|HobbyTown|847 Post Road|41.14698,-73.24949|east|books|Toys, hobby supplies, model kits, collectible cards, and radio-controlled models.|https://www.hobbytown.com/
+ff-hole-in-the-wall|Hole in the Wall|653 Post Road|41.148013,-73.246194|east|food|Breakfast, sandwiches, burgers, cheesesteaks.|https://holeinthewallct.com/|hole-in-the-wall
+ff-horseshoe-cafe|Horseshoe Cafe|355 Pequot Avenue|41.136316,-73.283928|south|food|Pub fare, burgers.|https://www.horseshoecafesouthport.com/|horseshoe-cafe
+ff-hotaru|Hotaru|3363 Post Road|41.138235,-73.29109|south|food|Japanese food, sushi, salads, soup.|https://hotarusouthport.com|hotaru
+ff-isabelle-et-vincent|Isabelle et Vincent|1903 Post Road|41.140783,-73.265137|west|coffee|Pastries, chocolate, bakery.|https://www.isabelleetvincentbakery.com|isabelle-et-vincent
+jmclaughlin|J.McLaughlin|342 Pequot Avenue|41.136372,-73.284115|south|fashion|Clothing and accessories.|https://www.jmclaughlin.com/
+ff-joylark|Joylark|260 Post Road|41.151375,-73.241051|east|food|Mediterranean, Italian, Portuguese, seafood, pizza, vegan options.|https://joylarkkitchen.com/|joylark
+ff-kabab-hummus-house|Kabab & Hummus House|3449 Post Road|41.138144,-73.29293|south|food|Egyptian, Mediterranean, Middle Eastern, halal.|https://www.instagram.com/kabab_hummus_house/|kabab-hummus-house
+kassonjewelers|Kasson Jewelers|393 Pequot Avenue|41.136187,-73.284141|south|fashion|Fine jewelry, estate jewelry, and custom design.|https://www.kassonjewelers.com/
+ff-kevin-s-corner|Kevin's Corner|222A Post Road|41.15185,-73.24045|east|food|Irish pub food, burgers, sandwiches.|https://www.kevinscornerpub.com/|kevin-s-corner
+ff-kneads-bakery-cafe-mill|Kneads Bakery Cafe & Mill|1916 Post Road|41.141025,-73.265697|west|coffee|Bakery, breakfast, sandwiches, coffee.|https://www.kneadsbakerycafe.com|kneads-bakery-cafe-mill
+latticehouse|Lattice House|330 Pequot Avenue|41.136483,-73.283971|south|gifts|Home décor, accessories, and gifts.|https://homegardenctny.com/design-destinations/design-destination-southport-ct/
+lollisutton|Lolli Sutton|1875 Post Road|41.140979,-73.264774|west|fashion|Women’s clothing and accessories.|https://www.lollisutton.com/
+ff-luigi-s-restaurant|Luigi's Restaurant|170 Post Road|41.152056,-73.239777|east|food|Italian food, pizza.|https://luigisfairfield.com|luigi-s-restaurant
+ff-luna-azzurra|Luna Azzurra|238 Post Road|41.151543,-73.240809|east|food|Italian food, pasta.|https://lunaazzurrafairfield.com/|luna-azzurra
+ff-mama-chow|Mama Chow|3381 Post Road|41.138142,-73.291632|south|food|Southeast Asian food, noodles, ramen.|https://www.mama-chow.com|mama-chow
+ff-martel-bistro-bar|Martel Bistro & Bar|2316 Post Road|41.140185,-73.272594|west|food|French bistro, sandwiches, salads.|https://www.martelrestaurant.com/|martel-bistro-bar
+ff-mcdonald-s-post-road-east|McDonald's|536 Post Road|41.149216,-73.244787|east|food|Burgers, breakfast, sandwiches.|https://www.mcdonalds.com/us/en-us/location/1032.html|mcdonald-s-post-road-east
+ff-mini-munch-sliders|Mini Munch Sliders|709 Post Road|41.147656,-73.247063|east|food|Burgers, sandwiches, chicken.|https://minimunchsliders.com/|mini-munch-sliders
+ff-momotaro-sushi|Momotaro Sushi|1795 Post Road|41.141025,-73.263305|west|food|Japanese sushi, all-you-can-eat menu.|https://www.momotarosushiayce.com/|momotaro-sushi
+musicarts|Music & Arts|1863 Post Road|41.141002,-73.264615|west|books|Musical instruments, rentals, sheet music, accessories, and lessons.|https://stores.musicarts.com/ct/fairfield/music-store-7338.html
+ff-organika-kitchen|Organika Kitchen|3546 Post Road|41.138446,-73.294746|south|food|Salads, smoothies, coffee, sandwiches, bowls.|https://www.organikact.com/|organika-kitchen
+ff-paci-restaurant|Paci Restaurant|96 Station Street|41.136454,-73.285797|south|food|Italian fine dining, seafood.|https://pacirestaurant.com|paci-restaurant
+panicale|Panicale Pasta|85 Mill Plain Road|41.141843,-73.266861|west|food|House-made pasta, naturally leavened pizza, and seasonal appetizers.|https://www.panicalepasta.com/|panicale-pasta
+ff-pattaya-wok|Pattaya Wok|17 Pease Avenue|41.139994,-73.287278|south|food|Thai and Chinese food.|https://pattayawok.com/|pattaya-wok
+ff-pho-nha-trang|Phở Nha Trang|80 Post Road|41.152986,-73.238337|east|food|Vietnamese food, noodles.|https://www.phonhatrang.com/|pho-nha-trang
+ff-pine-creek-delicatessen|Pine Creek Delicatessen|2120 Post Road|41.140681,-73.269077|west|food|Deli, breakfast, sandwiches.|https://fairfieldflavor.com/places/pine-creek-delicatessen/|pine-creek-delicatessen
+ff-planet-pizza|Planet Pizza|733 Post Road|41.147477,-73.247575|east|food|Pizza, pasta, sandwiches, salads.|https://planetpizzaoffairfield.com/|planet-pizza
+ff-popup-bagels|PopUp Bagels|1814 Post Road|41.141356,-73.263487|west|coffee|Bagels.|https://www.popupbagels.com/|popup-bagels
+ff-rawley-s-drive-in|Rawley's Drive-In|1886 Post Road|41.141182,-73.264943|west|food|Hot dogs, burgers.|https://www.rawleysdrivein.com/|rawley-s-drive-in
+rikos|Riko’s Pizza|1920 Black Rock Turnpike|41.180496,-73.24819|blackrock|food|Thin-crust tavern-style pizza, wings, and salads.|https://rikospizza.com/place-an-order/
+ff-romanacci|Romanacci|116 Post Road|41.15272,-73.238937|east|food|Italian food, pizza, tapas.|https://romanacci.com/fairfield/index.php|romanacci
+ff-roppongi|Roppongi|93 Post Road|41.152633,-73.238179|east|food|Japanese and Chinese food, sushi, ramen.|https://roppongifairfield.com/|roppongi
+ff-sally-s-apizza|Sally's Apizza|665 Commerce Drive|41.16335,-73.233256|kings|food|Pizza.|https://sallysapizza.com/locations/fairfield|sally-s-apizza
+ff-sammy-s-southport-pizza-grill|Sammy's Southport Pizza & Grill|295 Pequot Avenue|41.136812,-73.283309|south|food|Pizza, Italian and Greek food, sandwiches, salads.|https://pizzawestport.com/|sammy-s-southport-pizza-grill
+ff-senor-salsa|Señor Salsa|580 Post Road|41.148828,-73.245414|east|food|Mexican food, tacos, burritos.|https://www.senorsalsact.com/|senor-salsa
+ff-shiki-hana-japanese-bistro|Shiki Hana Japanese Bistro|222 Post Road F|41.151854,-73.240228|east|food|Japanese food, sushi, noodles, salads, soup.|https://www.shikihanabistro.com|shiki-hana-japanese-bistro
+shumi|Shumi Revolving Sushi|1838 Black Rock Turnpike|41.180063,-73.246682|blackrock|food|Revolving sushi, rolls, sashimi, poke bowls, and Japanese appetizers.|https://shumirevolvingsushi.com/
+ff-sonia-s-gourmet-kitchen|Sonia's Gourmet Kitchen|881 Post Road|41.1468,-73.249852|east|food|Mediterranean and Italian food, pizza, pasta, soup.|https://sgkfairfield.com/|sonia-s-gourmet-kitchen
+ff-southport-diner|Southport Diner|3350 Post Road|41.138784,-73.291267|south|food|Diner, burgers, seafood, breakfast, sandwiches, salads.|https://southportdiner.com/|southport-diner
+staples|Staples|1201 Kings Highway|41.163916,-73.23618|kings|books|Office and school supplies, technology accessories, and print services.|https://stores.staples.com/ct/fairfield/1201-kings-highway
+ff-starbucks-downtown-fairfield-2|Starbucks|1740 Post Road|41.141383,-73.262249|west|coffee|Coffee, bakery, breakfast.|https://www.starbucks.com/store-locator/store/7239/fairfield-boston-post-rd-1740-post-rd-fairfield-ct-068244533-us|starbucks-downtown-fairfield-2
+ff-subway-downtown-fairfield|Subway|1996 Post Road|41.14093,-73.26668|west|food|Sandwiches, salads, bowls.|https://restaurants.subway.com/united-states/ct/fairfield/1996-post-rd|subway-downtown-fairfield
+ff-sunny-daes-post-road-east|Sunny Daes|808 Post Road|41.147467,-73.249449|east|coffee|Ice cream, gelato, frozen yogurt.|https://www.sunnydaesicecream.com/|sunny-daes-post-road-east
+ff-tai-jiang|Tai Jiang|170 Post Road|41.152056,-73.239777|east|food|Chinese food, seafood.|https://taijiang.info/|tai-jiang
+ff-tequila-revolucion|Tequila Revolucion|1851 Post Road|41.140922,-73.264249|west|food|Mexican food, tacos, fajitas.|https://www.tequilarevolucionff.com/|tequila-revolucion
+ff-thai-kit|Thai Kit|222C Post Road|41.15199,-73.23993|east|food|Thai and Chinese food, bubble tea, noodles.|https://thaikitfairfield.com/|thai-kit
+ff-the-fairfield-deli-grill|The Fairfield Deli & Grill|170 Post Road|41.152056,-73.239777|east|food|Sandwiches, gyros, Middle Eastern food, halal, breakfast, salads.|https://www.fairfielddeligrill.com/online-ordering-1|the-fairfield-deli-grill
+granola|The Granola Bar|1876 Black Rock Turnpike|41.180263,-73.247415|blackrock|coffee|Coffee, tea, breakfast, sandwiches, and salads.|https://thegranolabar.com/location/fairfield/
+ff-the-gray-goose|The Gray Goose|246 Old Post Road|41.138336,-73.287268|south|food|American pub food, seafood, burgers, tacos.|https://www.thegraygoosecafe.com|the-gray-goose
+paperstore|The Paper Store|2255 Black Rock Turnpike|41.182341,-73.253816|blackrock|gifts|Greeting cards, wrapping paper, seasonal gifts, and ornaments.|https://www.thepaperstore.com/
+ff-tony-d-s-sports-cafe|Tony D's Sports Cafe|937 Post Road|41.145959,-73.250447|east|food|Pizza, sandwiches.|https://fairfieldflavor.com/places/tony-d-s-sports-cafe/|tony-d-s-sports-cafe
+ff-toscano-pizzeria|Toscano Pizzeria|3383 Post Road|41.138146,-73.291777|south|food|Pizza, sandwiches, pasta, salads.|https://toscanopizzeria.com/|toscano-pizzeria
+traderjoes|Trader Joe’s|2258 Black Rock Turnpike|41.18229,-73.25336|blackrock|books|Groceries, snacks, bakery items, produce, and flowers.|https://locations.traderjoes.com/ct/fairfield/523/
+tuskhomedesign|Tusk Home + Design|167 Old Post Road|41.138097,-73.285747|south|gifts|Home furnishings and interior design.|https://tuskhomeanddesign.com/store/
+ff-via-posa|Via Posa|2126 Post Road|41.140755,-73.269085|west|food|Italian food, pizza, pasta, sandwiches, bakery, coffee.|https://viaposa.com|via-posa
+ff-village-bagels|Village Bagels|873 Post Road|41.146251,-73.248944|east|coffee|Bakery, bagels, sandwiches, breakfast.|https://villagebagelsct.com|village-bagels
+vinylstreet|Vinyl Street Co.|1895 Post Road, Unit C|41.140943,-73.265042|west|books|New and used vinyl records.|https://www.vinylstreetco.com/
+ff-wich-day|wich / day|808 Post Road|41.147467,-73.249449|east|food|Sandwiches, breakfast, coffee, salads, bagels.|https://wichday.com/|wich-day
+ff-x-ramen|X Ramen|3671 Post Road|41.137911,-73.296681|south|food|Ramen, Japanese food, dim sum, sushi, bubble tea.|https://www.xramenfairfield.com/|x-ramen
+</script>
+<script>
+"use strict";
+
+const $ = selector => document.querySelector(selector);
+const all = selector => [...document.querySelectorAll(selector)];
+const categories = {
+  food:["Restaurants","R"], coffee:["Cafés and desserts","C"],
+  fashion:["Clothing and accessories","F"], gifts:["Gifts and home","G"],
+  books:["Other specialty stores","S"]
+};
+const areas = {
+  center:"Downtown Fairfield", east:"Eastern Post Road", west:"Western Post Road",
+  south:"Southport", blackrock:"Black Rock Turnpike", kings:"Kings Highway and nearby areas"
+};
+const needs = {
+  all:"Any need", birthday:"Birthday gift", dinner:"Outfit for dinner",
+  dorm:"Dorm supplies", study:"Coffee and studying", meal:"Get a meal"
+};
+const interests = {
+  reading:["Reading & campus life","Books or study supplies"],
+  home:["Home & décor","Décor or home accessories"],
+  style:["Style & accessories","Clothing, accessories, or jewelry"],
+  food:["Coffee & food","Food, drinks, or a meal out"],
+  custom:["Personalized gifts","Personalized or custom gifts"],
+  hobbies:["Games, music & hobbies","Games, music, or hobby supplies"]
+};
+const directory = "https://fairfieldflavor.com/places/";
+const census = "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress";
+const townDirectory = "https://www.experiencefairfieldct.org";
+const noOfficial = new Set([
+  "aurorasrestaurant","goodpoint","ff-old-post-tavern","theperfectpair","wendyjune",
+  "foxtrothome","ff-kabab-hummus-house","latticehouse","ff-pine-creek-delicatessen","ff-tony-d-s-sports-cafe"
+]);
+const additionalSources = {
+  bookstore:[townDirectory+"/shoppinglist/fairfielduniversitystore"],
+  brickwalk:["https://www.brickwalktavern.com/menu"],
+  cosetta:["https://www.cosetta.net/menu"],
+  element50:["https://element50.com/contact-us/"],
+  flour:["https://www.flourwatersaltbread.com/locations","https://www.flourwatersaltbread.com/menu"],
+  reid:["https://hcreidjewelers.com/pages/contact"],
+  hope:["https://findinghopeandjoy.com/collections/stationery","https://newyork.news12.com/fairfield-shop-turns-personalized-gifts-into-a-mission-of-hope-and-joy"],
+  intimates:["https://inthemoodintimates.com/pages/about-us"],
+  island:["https://www.islandoutfitters.com/pages/contact",townDirectory+"/shoppinglist/islandoutfitters"],
+  jane:[townDirectory+"/shoppinglist/janeandmercer"],
+  lamoda:["https://lamodafashions.com/locations","https://lamodafashions.com/brands"],
+  loom:["https://www.loomvintage.com/pages/fairfield-ct-vintage-shop","https://www.loomvintage.com/collections/vintage-home-decor"],
+  marathon:["https://stores.brooksrunning.com/store/22487/marathon-sports-fairfield"],
+  no299:["https://no-299-ct.myshopify.com/collections/decor"],
+  nordicfish:["https://www.nordicfishfairfield.com/menu/"],
+  ohsella:["https://ohsella.com/pages/birthday-parties-events","https://ohsella.com/collections/beaded-necklaces"],
+  saigonsnackbar:[townDirectory+"/dining-list/saigon-snack-bar"],
+  thepantry:["https://commerce.fairfieldctchamber.com/list/member/the-pantry-4082"],
+  thepehtshop:[townDirectory+"/shoppinglist/the-peht-shop"],
+  theperfectpair:["https://fairfieldctmoms.com/meet-a-mom-carrie-bocian-owner-of-the-perfect-pair/"],
+  vintage:["https://www.vintagegardengifts.com/about-us"],
+  wake:[townDirectory+"/dining-list/wakeupcoffee-fkh4y",
+    "https://coverage-fd98617c1efdc1227ba0a4a228f224ec.web.ordersave.com/downtown-fairfield"],
+  candlewood:["https://www.candlewoodmarket.com/visit-us"],
+  esh:[townDirectory+"/dining-list/esh-modern-mediterranean"],
+  hobby:[townDirectory+"/shoppinglist/hobbytown","https://hobbytyme.com/dealer.cfm?locator=818"],
+  jmclaughlin:[townDirectory+"/shoppinglist/jmclaughlin"],
+  latticehouse:["https://cottagesgardens.com/whats-new-in-the-design-community/"],
+  lollisutton:[townDirectory+"/shoppinglist/lollisutton"],
+  rikos:["https://rikospizza.com/menu/","https://rikospizza.com/gift-card/"],
+  staples:["https://stores.staples.com/ct/fairfield/1201-kings-highway/print-and-marketing-services"],
+  paperstore:["https://stores.hallmark.com/ct/fairfield/the-paper-store-of-fairfield-fairfield-ct-076650.html"],
+  vinylstreet:["https://www.vinylstreetco.com/contact-us"]
+};
+const matches = {
+  apricot:["dinner,birthday","style"], capri:["dinner,birthday","style"],
+  cosetta:["meal,study","food"], element50:["birthday","hobbies,style"],
+  bookstore:["birthday,dorm","reading"], reid:["birthday,dinner","style,custom"],
+  hope:["birthday,dinner,dorm","custom,style"], island:["dinner,birthday","style"],
+  loom:["dorm,birthday","home"], marathon:["birthday","hobbies,style"],
+  no299:["birthday,dorm","home,style"], nordicfish:["meal","food"],
+  ohsella:["birthday","style,hobbies"], tswirl:["birthday,study,meal","food"],
+  thepantry:["meal","food"], toypolloi:["birthday","hobbies,reading"],
+  vintage:["birthday,dorm","home,style"], wake:["study","food"],
+  hobby:["birthday","hobbies"], musicarts:["birthday","hobbies"],
+  staples:["dorm","reading"], granola:["study,meal","food"],
+  traderjoes:["dorm,birthday","food"], vinylstreet:["birthday","hobbies"]
+};
+const defaults = {
+  food:["meal","food"], coffee:["study,birthday","food"], fashion:["dinner","style"],
+  gifts:["birthday","home"], books:["",""]
+};
+const publishedHours = {
+  apricot:"Mon–Sat 10 am–6 pm · Sun noon–5:30 pm",
+  capri:"Mon–Sat 11 am–5 pm · Sun noon–4 pm",
+  flour:"Tue–Sat 8 am–3 pm or until sold out · Sun–Mon closed",
+  hope:"Tue–Fri 10 am–5 pm · Sat 11 am–4 pm · Sun 11 am–3 pm · Mon closed",
+  loom:"See the location page for current hours and weekday closures.",
+  vintage:"Mon–Sat 10 am–6 pm · Sun noon–5 pm",
+  wake:"Mon–Fri 5 am–noon · Sat–Sun 8 am–noon",
+  candlewood:"Mon–Thu 6 am–8 pm · Fri 6 am–7 pm · Sat–Sun 7 am–7 pm",
+  panicale:"Tue–Sun 4–10 pm · Mon closed"
+};
+const split = value => value.split(",").filter(Boolean);
+const stores = $("#business-data").textContent.trim().split(/\r?\n/).map(line => {
+  const [id,name,address,coordinates,area,category,offerings,site,slug] = line.split("|");
+  const [needKeys,giftKeys] = matches[id] || defaults[category];
+  return {
+    id,name,address,area,category,offerings,site,slug,
+    town:area === "south" ? "Southport" : "Fairfield",
+    zip:area === "south" ? "06890" : area === "blackrock" ? "06825" : "06824",
+    point:coordinates.split(",").map(Number),
+    needs:split(needKeys), gifts:split(giftKeys), hours:publishedHours[id], prices:[]
+  };
+});
+const byId = Object.fromEntries(stores.map(place => [place.id,place]));
+const noPrice = "Price information unavailable";
+const money = new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"});
+const hopeCatalog = "https://findinghopeandjoy.com/products/";
+const loomCatalog = "https://www.loomvintage.com/";
+const no299Catalog = "https://no-299-ct.myshopify.com/";
+const candleMenu = "https://www.candlewoodmarket.com/online-ordering";
+const havenMenu = "https://order.toasttab.com/online/haven-hot-chicken-fairfield-907-post-road";
+const shumiMenu = "https://www.shumirevolvingsushict.com/rfj0ve5r/shumi-revolving-sushi-fairfield-06825/menu";
+const granolaMenu = "https://order.thegranolabar.com/order/tgb-fairfield-1876-black-rock-turnpike";
+
+function prices(id, range, entries) {
+  byId[id].range = range;
+  byId[id].prices = entries.map(([name,value,url,needKeys,giftKeys]) =>
+    ({name,value,url,needs:split(needKeys),gifts:split(giftKeys)}));
+}
+prices("hope","$20–$100 for selected personalized stationery online",[
+  ["Personalized scalloped name notepad",20,hopeCatalog+"personalized-scalloped-name-notepad","birthday,dorm","custom"],
+  ["Personalized monogram journal",28,hopeCatalog+"personalized-drop-shadow-monogram-journal","birthday,dorm","custom"],
+  ["Preppy stationery set",65,hopeCatalog+"preppy-stationery-set-stripes-floral","birthday,dorm","custom"],
+  ["Gingham monogrammed stationery set",100,hopeCatalog+"gingham-print-monogrammed-stationery-set","birthday","custom"]
+]);
+prices("loom","$22–$48 for selected small décor and storage pieces online",[
+  ["Vintage hobnail milk glass vase",22,loomCatalog+"products/vintage-hobnail-milk-glass-vase-scalloped-rim","birthday,dorm","home"],
+  ["Round water hyacinth basket",38,loomCatalog+"products/large-round-water-hyacinth-basket-with-handles","birthday,dorm","home"],
+  ["Basketville wall mirror with shelf",48,loomCatalog+"collections/vintage-home-decor","birthday,dorm","home"]
+]);
+prices("no299","$22–$34 for sampled online décor",[
+  ["Woven-resin photo frame",22,no299Catalog+"collections/decor","birthday,dorm","home"],
+  ["Mango wood dish",34,no299Catalog+"collections/decor","birthday,dorm","home"],
+  ["Gift card",25,no299Catalog+"products/no-299-gift-card","birthday","home,style"]
+]);
+prices("candlewood","$1.86–$4.81 for sampled coffee and espresso drinks on the pickup menu",[
+  ["Medium roast coffee",3.26,candleMenu,"study,birthday","food"],
+  ["Espresso",1.86,candleMenu,"study,birthday","food"],
+  ["Flavored latte",4.81,candleMenu,"study,birthday","food"]
+]);
+prices("haven","$7.99–$18.24 for sampled Fairfield menu wraps and combos",[
+  ["Wrap Snack",7.99,havenMenu,"meal",""],
+  ["Tendie Slider Combo",10.75,havenMenu,"meal","food"],
+  ["Chicken sandwich combo",18.24,havenMenu,"meal","food"]
+]);
+prices("shumi","$5.25–$11.95 for sampled Fairfield menu appetizers",[
+  ["Edamame",5.25,shumiMenu,"meal",""],
+  ["Five-piece sushi appetizer",11.95,shumiMenu,"meal","food"]
+]);
+prices("granola","$3.50–$5.25 for sampled Fairfield menu coffee drinks",[
+  ["Drip coffee",3.5,granolaMenu,"study","food"],
+  ["Latte",5.25,granolaMenu,"study","food"],
+  ["Tropical parfait",14,granolaMenu,"meal","food"]
+]);
+
+const verification = [
+  ["Las Vetas Lounge, 1640 Post Road. Relocation was reported. Reopening could not be confirmed.",
+    "https://www.ctinsider.com/food/article/las-vetas-lounge-fairfield-new-location-22191204.php"],
+  ["Spice Club, 1342 Kings Highway Cutoff. Listed as closed. Sabor Peruano is listed at this address.",
+    "https://www.opentable.com/r/sabor-peruano-fairfield"],
+  ["Lattice House. The newer design guide lists 330 Pequot Avenue. The town directory lists 411 Pequot Avenue.",
+    byId.latticehouse.site],
+  ["Wake Cup Coffee. The business lists 193 Unquowa Road, Unit RR. The town lists the same platform at 165 Unquowa Road.",
+    additionalSources.wake[0]],
+  ["Operating status is based on published information. Check the linked source before visiting.",""]
+];
+for (const id of noOfficial) {
+  const place = byId[id];
+  verification.push([place.name + ". The profile links to a directory, ordering page, or social profile for this location.",
+    place.slug ? directory + place.slug + "/" : place.site]);
+}
+for (const id of ["ff-the-fairfield-deli-grill","ff-ginkgo-sichuan-cuisine","hobby","wake"]) {
+  verification.push([byId[id].name + ". Its published website could not be reached during the workspace check.",byId[id].site]);
+}
+
+const starts = {
+  station:{name:"Fairfield train station",address:"Fairfield Station, Fairfield, CT",point:[41.14413,-73.25773]},
+  campus:{name:"Fairfield University",address:"1073 North Benson Road, Fairfield, CT",point:[41.16087,-73.25393]},
+  library:{name:"Fairfield Public Library",address:"1080 Old Post Road, Fairfield, CT",point:[41.14157,-73.25580]}
+};
+const downtown = [41.1422,-73.257];
+const mapNode = $("#map");
+const mapHome = $("#map-home");
+const dialog = $("#profile");
+const storageKey = "fairfield-shopping-finder-v1";
+const route = [];
+const comparison = new Set();
+let saved = {};
+let activeView = "explore";
+let activeCategory = "";
+let activeNeed = "all";
+let searchedBounds;
+let explorePosition;
+let routeStart = "station";
+let compareStart = "station";
+let profileId;
+let profileOpener;
+let toastTimer;
+
+try {
+  const value = JSON.parse(localStorage.getItem(storageKey) || "{}");
+  if (value && typeof value === "object" && !Array.isArray(value)) saved = value;
+} catch {}
+
+function escapeHtml(value) {
+  const entities = {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"};
+  return String(value ?? "").replace(/[&<>"']/g, character => entities[character]);
+}
+function link(url,label,style="") {
+  return `<a class="${style}" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>`;
+}
+function announce(message) {
+  $("#toast").textContent = message;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { $("#toast").textContent = ""; }, 3200);
+}
+function writeSaved(id,key,value) {
+  saved[id] = {...saved[id],[key]:value};
+  try {
+    localStorage.setItem(storageKey,JSON.stringify(saved));
+    return true;
+  } catch {
+    announce("Browser storage is unavailable. Changes will last until you leave the page.");
+    return false;
+  }
+}
+function updateBadges() {
+  const count = stores.filter(place => saved[place.id]?.favorite).length;
+  $("#saved-count").textContent = count ? ` (${count})` : "";
+  $("#route-count").textContent = route.length ? ` (${route.length})` : "";
+}
+function normalize(value) {
+  return value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/['’]/g,"");
+}
+function trueAddress(place) {
+  return `${place.address}, ${place.town}, CT ${place.zip}`;
+}
+function budgetBounds() {
+  const budget = $("#budget").value;
+  const input = $("#custom-budget");
+  if (budget === "custom" && input.value !== "" && input.validity.valid) return [0,Number(input.value)];
+  return {under25:[0,24.99],"25to50":[25,50],"50to100":[50,100],over100:[100,Infinity]}[budget];
+}
+function priceMatches(place,bounds,need) {
+  return place.prices.filter(example => example.value >= bounds[0] && example.value <= bounds[1] &&
+    (!need || need === "all" || example.needs.includes(need)));
+}
+function visibleStores() {
+  const words = normalize($("#query").value.trim()).split(/\s+/).filter(Boolean);
+  const area = $("#area").value;
+  const budget = budgetBounds();
+  return stores.filter(place => {
+    const search = normalize(`${place.name} ${place.offerings}`);
+    return (!activeCategory || place.category === activeCategory) &&
+      (!area || place.area === area) &&
+      (!searchedBounds || searchedBounds.contains(place.point)) &&
+      (activeNeed === "all" || place.needs.includes(activeNeed)) &&
+      words.every(word => search.includes(word)) &&
+      (!budget || priceMatches(place,budget,activeNeed).length > 0);
+  });
+}
+const needAdvice = {
+  birthday:"Consider its offerings for a gift or birthday outing.",
+  dinner:"Look for clothes or accessories to go with your dinner outfit.",
+  dorm:"Consider its supplies, décor, or snacks for your room.",
+  study:"Pick up a drink or snack before studying. Ask the café about seating if you plan to work there.",
+  meal:"Check the menu or prepared-food offerings for a meal."
+};
+function matchReason(place,need) {
+  if (place.id === "candlewood" && need === "study") return "The café lists Wi-Fi and seating.";
+  return needAdvice[need] || "";
+}
+function card(place,showMatch=false) {
+  const budget = showMatch && budgetBounds();
+  const example = budget ? priceMatches(place,budget,activeNeed)[0] : place.prices[0];
+  const favorite = !!saved[place.id]?.favorite;
+  return `<article class="card ${place.category}">
+    <button type="button" class="card-open" data-open="${place.id}">
+      <strong>${escapeHtml(place.name)}</strong>
+      <span class="address">${escapeHtml(place.address)} · ${escapeHtml(areas[place.area])}</span>
+      <span class="tag">${categories[place.category][0]}</span>
+      ${example ? `<span class="note">Published example · ${money.format(example.value)}</span>` : ""}
+      ${showMatch && activeNeed !== "all" ? `<span class="note">${escapeHtml(matchReason(place,activeNeed))}</span>` : ""}
+    </button>
+    <button type="button" class="soft heart" data-favorite="${place.id}"
+      aria-label="Favorite ${escapeHtml(place.name)}" aria-pressed="${favorite}">${favorite ? "♥" : "♡"}</button>
+  </article>`;
+}
+
+let map, clusters, tripLayer;
+if (window.L) {
+  map = L.map(mapNode,{zoomControl:false,scrollWheelZoom:false,maxZoom:19}).setView(downtown,15);
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{
+    maxZoom:19,
+    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  }).addTo(map);
+  L.control.zoom({position:"topright"}).addTo(map);
+  L.control.scale({position:"bottomleft",imperial:true,metric:false}).addTo(map);
+
+  clusters = (L.markerClusterGroup ? L.markerClusterGroup({
+    maxClusterRadius:42,showCoverageOnHover:false,removeOutsideVisibleBounds:false,
+    zoomToBoundsOnClick:false,spiderfyOnMaxZoom:false,spiderfyDistanceMultiplier:1.45,animate:false,
+    iconCreateFunction(cluster) {
+      const count = cluster.getChildCount();
+      return L.divIcon({className:"cluster-icon",iconSize:[36,36],
+        html:`<span class="cluster-label" aria-label="${count} businesses">${count}</span>`});
+    }
+  }) : L.layerGroup()).addTo(map);
+  clusters.on("clusterclick",({layer}) => {
+    if (map.getZoom() === map.getMaxZoom()) {
+      layer.spiderfy();
+    } else {
+      const bounds = layer.getBounds();
+      const zoom = Math.min(map.getMaxZoom(),Math.max(map.getZoom()+1,map.getBoundsZoom(bounds,false,[45,45])));
+      map.setView(bounds.getCenter(),zoom,{animate:false});
+    }
+  });
+  tripLayer = L.layerGroup().addTo(map);
+  if (!L.markerClusterGroup) announce("Clustering could not load. Individual pins are still available.");
+} else {
+  mapNode.innerHTML = '<p class="empty">The map library could not load. Use the list for addresses and directions.</p>';
+  $("#search-area").disabled = $("#fit-map").disabled = true;
+}
+function drawMap(places,{trip=false,fit=false}={}) {
+  if (!map) return;
+  clusters.clearLayers();
+  tripLayer.clearLayers();
+  const layer = trip ? tripLayer : clusters;
+  const points = places.map(place => place.point);
+  const pins = places.map((place,index) => {
+    const shared = trip ? places.filter(other => other.point.join() === place.point.join()) : [];
+    const offset = trip ? (shared.indexOf(place)-(shared.length-1)/2)*25 : 0;
+    const marker = L.marker(place.point,{
+      title:place.name,
+      icon:L.divIcon({className:`pin ${place.category}`,iconSize:[22,22],iconAnchor:[11-offset,20],
+        html:`<span aria-hidden="true"><b>${trip ? index+1 : categories[place.category][1]}</b></span>`})
+    });
+    marker.on("add",() => marker.getElement()?.setAttribute("aria-label",place.name));
+    marker.on("click",() => openProfile(place.id,marker.getElement()));
+    return marker;
+  });
+  if (layer.addLayers) layer.addLayers(pins);
+  else pins.forEach(pin => layer.addLayer(pin));
+
+  if (trip && points.length) {
+    const start = starts[routeStart];
+    points.push(start.point);
+    L.circleMarker(start.point,{radius:7,color:"white",fillColor:"#252126",fillOpacity:1,weight:2})
+      .bindTooltip(`Start · ${start.name}`).addTo(tripLayer);
+  }
+  requestAnimationFrame(() => {
+    if (!mapNode.getClientRects().length) return;
+    map.invalidateSize({pan:false});
+    if ((fit || trip) && points.length) map.fitBounds(points,{padding:[32,32],maxZoom:17,animate:false});
+  });
+}
+function renderExplore(redraw=true,fit=false) {
+  const places = visibleStores();
+  const count = `${places.length} ${places.length === 1 ? "business" : "businesses"} match`;
+  $("#result-count").textContent = $("#mobile-count").textContent = count;
+  $("#clear-area").hidden = $("#scope-note").hidden = !searchedBounds;
+  $("#custom-wrap").hidden = $("#budget").value !== "custom";
+  $("#budget-help").hidden = !budgetBounds();
+  all("[data-category]").forEach(button => button.setAttribute("aria-pressed",String(button.dataset.category === activeCategory)));
+  all("[data-need]").forEach(button => button.setAttribute("aria-pressed",String(button.dataset.need === activeNeed)));
+  $("#results").innerHTML = places.length ? places.map(place => card(place,true)).join("") :
+    '<div class="empty"><h3>No businesses match</h3><p>Try a different search, area, category, or budget.</p><button type="button" class="soft" data-reset>Reset filters</button></div>';
+  if (redraw) drawMap(places,{fit});
+}
+function resetFilters() {
+  activeCategory = "";
+  activeNeed = "all";
+  searchedBounds = undefined;
+  for (const id of ["query","area","budget","custom-budget"]) $("#"+id).value = "";
+  if (map) map.setView(downtown,15,{animate:false});
+  renderExplore();
+  $("#query").focus();
+}
+function directions(origin,places) {
+  const names = places.map(place => `${place.name}, ${trueAddress(place)}`);
+  const params = new URLSearchParams({api:"1",travelmode:"walking",destination:names.at(-1)});
+  if (origin) params.set("origin",origin);
+  if (names.length > 1) params.set("waypoints",names.slice(0,-1).join("|"));
+  return `https://www.google.com/maps/dir/?${params}`;
+}
+function noteField(place) {
+  return `<label class="field">Personal note for ${escapeHtml(place.name)}
+    <textarea data-note="${place.id}" maxlength="2000" rows="2" placeholder="A reminder for your next visit">${escapeHtml(saved[place.id]?.note)}</textarea>
+  </label>`;
+}
+function sourcesFor(place) {
+  const sources = [];
+  if (place.slug) sources.push([directory+place.slug+"/","Fairfield Flavor listing and coordinates"]);
+  else if (place.id !== "wake") sources.push([census,"U.S. Census address geocoder"]);
+  const supplementary = additionalSources[place.id] || [];
+  supplementary.forEach((url,index) => sources.push([url,`Additional verification source ${index+1}`]));
+  return [...new Map(sources.map(item => [item[0],item])).values()];
+}
+function openProfile(id,opener) {
+  const place = byId[id];
+  if (!place) return;
+  if (!dialog.open) profileOpener = opener || document.activeElement;
+  profileId = id;
+  const personal = saved[id] || {};
+  const priceDetails = place.prices.length ? `<h3>Published price examples</h3><ul>${place.prices.map(example =>
+    `<li>${escapeHtml(example.name)} · ${money.format(example.value)} · ${link(example.url,"Price source")}</li>`
+  ).join("")}</ul><p class="note">Check the linked source for current prices and availability.</p>` : "";
+  const why = place.needs.includes(activeNeed) ? `<h3>Why it matches</h3><p>${escapeHtml(matchReason(place,activeNeed))}</p>` : "";
+  const sourceLinks = sourcesFor(place).map(([url,label]) => `<li>${link(url,label)}</li>`).join("");
+  $("#profile-body").innerHTML = `<div class="profile-top ${place.category}">
+    <div><span class="tag">${categories[place.category][0]}</span>
+      <h2 id="profile-title">${escapeHtml(place.name)}</h2>
+      <p class="address">${escapeHtml(trueAddress(place))}</p>
+      <p class="note">${escapeHtml(areas[place.area])}</p></div>
+    <form method="dialog"><button id="close-profile" class="soft">Close</button></form>
+  </div>
+  <h3>Offerings</h3><p>${escapeHtml(place.offerings)}</p>
+  ${why}
+  <h3>Price information</h3><p>${escapeHtml(place.range || noPrice)}</p>${priceDetails}
+  <h3>Hours</h3><p>${escapeHtml(place.hours || "See the business source for current hours.")}</p>
+  <h3>Sources</h3><p class="note">Sources reviewed November 17, 2026 · Approximate map pin</p>
+  ${sourceLinks ? `<ul>${sourceLinks}</ul>` : ""}
+  <div class="row profile-actions">
+    ${link(place.site,noOfficial.has(id) ? "View business listing or profile" : "Visit website","primary")}
+    ${link(directions(null,[place]),"Walking directions ↗","soft")}
+  </div>
+  <div class="row profile-actions">
+    <button type="button" class="soft" data-favorite="${id}" aria-pressed="${!!personal.favorite}">${personal.favorite ? "Favorited" : "Favorite"}</button>
+    <button type="button" class="soft" data-visit="${id}" aria-pressed="${!!personal.visited}">${personal.visited ? "Visited ✓" : "Mark visited"}</button>
+    <button type="button" class="soft" data-add="${id}" ${route.includes(id) ? "disabled" : ""}>${route.includes(id) ? "Added to route" : "Add to route"}</button>
+    <button type="button" class="soft" data-compare-toggle="${id}" aria-pressed="${comparison.has(id)}">${comparison.has(id) ? "Remove from comparison" : "Compare"}</button>
+  </div>${noteField(place)}`;
+  if (!dialog.open) {
+    dialog.showModal();
+    $("#close-profile").focus();
+  }
+}
+dialog.addEventListener("close",() => {
+  if (activeView === "saved") showView("saved");
+  if (profileOpener?.isConnected) profileOpener.focus();
+  else ($(`[data-open="${profileId}"]`) || $(`[data-view="${activeView}"]`))?.focus();
+});
+
+function startOptions(selected) {
+  return Object.entries(starts).map(([id,start]) =>
+    `<option value="${id}" ${selected === id ? "selected" : ""}>${escapeHtml(start.name)}</option>`).join("");
+}
+function routeMarkup() {
+  const options = stores.filter(place => !route.includes(place.id)).map(place =>
+    `<option value="${place.id}">${escapeHtml(place.name)} · ${escapeHtml(place.address)}</option>`).join("");
+  const rows = route.map((id,index) => {
+    const name = escapeHtml(byId[id].name);
+    return `<div class="item row">
+      <strong class="stop-name">${index+1}. ${name}</strong>
+      <button type="button" class="soft" data-move="-1" data-index="${index}" aria-label="Move ${name} up" ${index === 0 ? "disabled" : ""}>↑</button>
+      <button type="button" class="soft" data-move="1" data-index="${index}" aria-label="Move ${name} down" ${index === route.length-1 ? "disabled" : ""}>↓</button>
+      <button type="button" class="soft" data-remove="${id}" aria-label="Remove ${name}">Remove</button>
+    </div>`;
+  }).join("");
+  const legs = route.map((id,index) => {
+    const previous = byId[route[index-1]];
+    const origin = previous ? `${previous.name}, ${trueAddress(previous)}` : starts[routeStart].address;
+    return `<li>${link(directions(origin,[byId[id]]),`Walk to ${byId[id].name} ↗`)}</li>`;
+  }).join("");
+  const wholeTrip = route.length > 0 && route.length <= 4 ?
+    link(directions(starts[routeStart].address,route.map(id => byId[id])),"Open walking directions ↗","primary") : "";
+  return `<h2>My route</h2><p>Choose a starting point and use the arrows to order your stops.</p>
+  <div class="route-layout"><div>
+    <div class="grid">
+      <label class="field">Starting point<select id="route-start">${startOptions(routeStart)}</select></label>
+      <label class="field">Add a stop<select id="route-add"><option value="">Choose a business</option>${options}</select></label>
+    </div>
+    ${rows || '<p class="note">No stops yet. Choose a business here or add one from its profile.</p>'}
+    ${route.length ? `${wholeTrip}<p class="note">Google Maps provides walking times and distances. Use the individual links for trips with more than four stops or when your device skips waypoints.</p><ol>${legs}</ol>` : ""}
+  </div><div id="route-map"></div></div>`;
+}
+function miles(a,b) {
+  const radians = degrees => degrees*Math.PI/180;
+  const h = Math.sin(radians(b[0]-a[0])/2)**2 +
+    Math.cos(radians(a[0]))*Math.cos(radians(b[0]))*Math.sin(radians(b[1]-a[1])/2)**2;
+  return 2*3958.8*Math.asin(Math.sqrt(Math.min(1,h)));
+}
+function compareMarkup() {
+  const checks = stores.map(place => `<label>
+    <input type="checkbox" data-compare="${place.id}" ${comparison.has(place.id) ? "checked" : ""}
+      ${comparison.size >= 3 && !comparison.has(place.id) ? "disabled" : ""}>
+    ${escapeHtml(place.name)} <span class="address">· ${escapeHtml(place.address)}</span>
+  </label>`).join("");
+  const rows = [...comparison].map(id => {
+    const place = byId[id];
+    return `<tr><th scope="row"><button type="button" class="soft" data-open="${id}">${escapeHtml(place.name)}</button></th>
+      <td>${escapeHtml(place.offerings)}</td><td>${escapeHtml(place.range || noPrice)}</td>
+      <td>${miles(starts[compareStart].point,place.point).toFixed(2)} mi</td></tr>`;
+  }).join("");
+  return `<h2>Compare businesses</h2><p>Choose two or three places. Distances are straight-line estimates.</p>
+    <div class="grid"><label class="field">Starting point<select id="compare-start">${startOptions(compareStart)}</select></label></div>
+    <div class="checks">${checks}</div>
+    ${comparison.size < 2 ? '<p class="note">Select at least two businesses to see the comparison.</p>' :
+      `<div class="table-scroll"><table><thead><tr><th>Business</th><th>Offerings</th><th>Price information</th><th>Estimated distance</th></tr></thead><tbody>${rows}</tbody></table></div>`}`;
+}
+function giftMarkup() {
+  const recipients = ["Friend","Roommate","Partner","Family member","Host"];
+  return `<h2>Gift finder</h2><p>Find gift ideas or a place to take someone.</p>
+    <form id="gift-form"><div class="grid">
+      <label class="field">Who is it for?<select name="recipient" required><option value="">Choose a recipient</option>
+        ${recipients.map(name => `<option value="${name.toLowerCase()}">${name}</option>`).join("")}</select></label>
+      <label class="field">What do they like?<select name="interest" required><option value="">Choose an interest</option>
+        ${Object.entries(interests).map(([id,[name]]) => `<option value="${id}">${escapeHtml(name)}</option>`).join("")}</select></label>
+      <label class="field">Maximum budget ($)<input name="max" type="number" min="0" step=".01" placeholder="25" required></label>
+    </div><button class="primary">Find gift ideas</button></form><div id="gift-results" aria-live="polite"></div>`;
+}
+function showGifts(form) {
+  const inputs = new FormData(form);
+  const interest = inputs.get("interest");
+  const recipient = inputs.get("recipient");
+  const budget = Number(inputs.get("max"));
+  const advice = {
+    friend:"Think of a hobby or memory you share.",
+    roommate:"Consider something they can use in their room or daily routine.",
+    partner:"Look for a detail that feels personal to them.",
+    "family member":"Consider something that reminds them of a visit or shared memory.",
+    host:"Look for something they can enjoy after the visit."
+  };
+  const candidates = stores.filter(place => place.gifts.includes(interest)).map(place => ({
+    place,example:priceMatches(place,[0,budget]).find(item => item.gifts.includes(interest))
+  })).sort((a,b) => Number(!!b.example)-Number(!!a.example));
+  const hasBudgetExample = candidates.some(item => item.example);
+  $("#gift-results").innerHTML = `<div class="item">
+    <h3>${escapeHtml(interests[interest][1])} for your ${escapeHtml(recipient)}</h3>
+    <p>${escapeHtml(advice[recipient])}</p>
+    <p class="note">Budget ${money.format(budget)} · ${hasBudgetExample ? "Published examples in your budget appear first." : "No published examples in this budget."}</p>
+  </div>${candidates.map(({place,example}) => `<article class="item">
+    <h3>${escapeHtml(place.name)}</h3><p>${escapeHtml(place.offerings)}</p>
+    <p class="note">${example ?
+      `Published example · ${escapeHtml(example.name)} · ${money.format(example.value)} · ${link(example.url,"Source")}` :
+      place.prices.some(item => item.gifts.includes(interest)) ? "No published example within your budget." : noPrice}</p>
+    <button type="button" class="soft" data-open="${place.id}">View profile</button>
+  </article>`).join("")}`;
+}
+function savedMarkup() {
+  const places = stores.filter(place => {
+    const personal = saved[place.id];
+    return personal?.favorite || personal?.visited || personal?.note?.trim();
+  });
+  return `<h2>Saved places</h2><p>Favorites, visits, and notes are stored in this browser.</p>
+    ${places.length ? places.map(place => {
+      const visited = !!saved[place.id]?.visited;
+      return `<article class="item">${card(place)}
+        <button type="button" class="soft" data-visit="${place.id}" aria-pressed="${visited}">${visited ? "Visited ✓" : "Mark visited"}</button>
+        ${noteField(place)}</article>`;
+    }).join("") : "<p>No saved places yet. Favorite a business or add a visit or note from its profile.</p>"}`;
+}
+function showView(next) {
+  const previous = activeView;
+  if (map && previous === "explore" && next !== "explore") explorePosition = {center:map.getCenter(),zoom:map.getZoom()};
+  if (mapNode.parentElement !== mapHome) mapHome.insertBefore(mapNode,$("#legend"));
+  activeView = next;
+  $("#explore").hidden = next !== "explore";
+  $("#tools").hidden = next === "explore";
+  all("[data-view]").forEach(button => {
+    if (button.dataset.view === next) button.setAttribute("aria-current","page");
+    else button.removeAttribute("aria-current");
+  });
+  if (next === "explore") {
+    if (map && previous !== "explore" && explorePosition) {
+      map.invalidateSize({pan:false});
+      map.setView(explorePosition.center,explorePosition.zoom,{animate:false});
+    }
+    renderExplore();
+  } else {
+    const render = {route:routeMarkup,compare:compareMarkup,gift:giftMarkup,saved:savedMarkup};
+    $("#tools").innerHTML = render[next]();
+    if (next === "route") {
+      $("#route-map").append(mapNode);
+      drawMap(route.map(id => byId[id]),{trip:true});
+    }
+  }
+}
+function addStop(id) {
+  if (!route.includes(id)) {
+    route.push(id);
+    updateBadges();
+    announce(`${byId[id].name} added to your route.`);
+  }
+}
+function refreshAfterAction(id,attribute) {
+  updateBadges();
+  if (activeView === "explore") renderExplore(false);
+  if (["saved","route","compare"].includes(activeView)) showView(activeView);
+  if (dialog.open) {
+    openProfile(id);
+    (dialog.querySelector(`[${attribute}="${id}"]:not(:disabled)`) || $("#close-profile")).focus();
+  } else {
+    ($(`[${attribute}="${id}"]`) || $(`[data-view="${activeView}"]`))?.focus();
+  }
+}
+
+document.addEventListener("click",event => {
+  const button = event.target.closest("button");
+  if (!button) return;
+  const data = button.dataset;
+  if (data.view) showView(data.view);
+  if ("category" in data) {
+    activeCategory = data.category;
+    renderExplore();
+  }
+  if (data.need) {
+    activeNeed = data.need;
+    renderExplore();
+  }
+  if ("reset" in data) resetFilters();
+  if (data.mobileMode) {
+    $("#explore").dataset.mobile = data.mobileMode;
+    all("[data-mobile-mode]").forEach(control => control.setAttribute("aria-pressed",String(control === button)));
+    if (data.mobileMode === "map" && map) requestAnimationFrame(() => map.invalidateSize({pan:false}));
+  }
+  if (button.id === "search-area" && map) {
+    searchedBounds = map.getBounds();
+    renderExplore();
+    announce($("#result-count").textContent);
+  }
+  if (button.id === "clear-area") {
+    searchedBounds = undefined;
+    renderExplore();
+    $("#search-area").focus();
+  }
+  if (button.id === "fit-map") drawMap(visibleStores(),{fit:true});
+  if (data.open) openProfile(data.open,button);
+  if (data.favorite) {
+    const value = !saved[data.favorite]?.favorite;
+    const stored = writeSaved(data.favorite,"favorite",value);
+    refreshAfterAction(data.favorite,"data-favorite");
+    if (stored) announce(value ? "Added to favorites." : "Removed from favorites.");
+  }
+  if (data.visit) {
+    writeSaved(data.visit,"visited",!saved[data.visit]?.visited);
+    refreshAfterAction(data.visit,"data-visit");
+  }
+  if (data.add) {
+    addStop(data.add);
+    refreshAfterAction(data.add,"data-add");
+  }
+  if (data.remove) {
+    route.splice(route.indexOf(data.remove),1);
+    updateBadges();
+    showView("route");
+    $("#route-add").focus();
+  }
+  if (data.move) {
+    const from = Number(data.index);
+    const to = from+Number(data.move);
+    if (to >= 0 && to < route.length) {
+      [route[from],route[to]] = [route[to],route[from]];
+      showView("route");
+      $(`[data-index="${to}"]:not(:disabled)`)?.focus();
+    }
+  }
+  if (data.compareToggle) {
+    const id = data.compareToggle;
+    if (comparison.has(id)) comparison.delete(id);
+    else if (comparison.size < 3) comparison.add(id);
+    else { announce("Choose up to three businesses for comparison."); return; }
+    refreshAfterAction(id,"data-compare-toggle");
+  }
+});
+document.addEventListener("input",event => {
+  const field = event.target;
+  if (field.id === "query" || field.id === "custom-budget") renderExplore();
+  if (field.dataset.note) writeSaved(field.dataset.note,"note",field.value);
+});
+document.addEventListener("change",event => {
+  const field = event.target;
+  if (field.id === "area") {
+    searchedBounds = undefined;
+    renderExplore(true,!!field.value);
+  }
+  if (field.id === "budget") {
+    renderExplore();
+    if (field.value === "custom") $("#custom-budget").focus();
+  }
+  if (field.id === "route-add" && field.value) {
+    addStop(field.value);
+    showView("route");
+    $("#route-add").focus();
+  }
+  if (field.id === "route-start") {
+    routeStart = field.value;
+    showView("route");
+    $("#route-start").focus();
+  }
+  if (field.id === "compare-start") {
+    compareStart = field.value;
+    showView("compare");
+    $("#compare-start").focus();
+  }
+  if (field.dataset.compare) {
+    const id = field.dataset.compare;
+    const scroll = $(".checks").scrollTop;
+    if (field.checked && comparison.size < 3) comparison.add(id);
+    else comparison.delete(id);
+    showView("compare");
+    $(`[data-compare="${id}"]`)?.focus({preventScroll:true});
+    $(".checks").scrollTop = scroll;
+  }
+  if (field.dataset.note && activeView === "saved" && !dialog.open && !field.value.trim()) {
+    const personal = saved[field.dataset.note];
+    if (!personal?.favorite && !personal?.visited) showView("saved");
+  }
+});
+document.addEventListener("submit",event => {
+  if (event.target.id === "gift-form") {
+    event.preventDefault();
+    showGifts(event.target);
+  }
+});
+
+$("#area").insertAdjacentHTML("beforeend",Object.entries(areas).map(([id,name]) =>
+  `<option value="${id}">${escapeHtml(name)}</option>`).join(""));
+$("#categories").innerHTML = [["","All categories"],...Object.entries(categories).map(([id,[name]]) => [id,name])]
+  .map(([id,name]) => `<button type="button" class="chip" data-category="${id}">${escapeHtml(name)}</button>`).join("");
+$("#needs").innerHTML = Object.entries(needs).map(([id,name]) =>
+  `<button type="button" class="chip" data-need="${id}">${escapeHtml(name)}</button>`).join("");
+$("#legend").innerHTML = Object.entries(categories).map(([id,[name]]) =>
+  `<span class="${id}">${escapeHtml(name)}</span>`).join("");
+$("#verification-list").innerHTML = verification.map(([note,url]) =>
+  `<li>${escapeHtml(note)} ${url ? link(url,"Source") : ""}</li>`).join("");
+updateBadges();
+renderExplore();
+</script>
+</body>
+</html>
